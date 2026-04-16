@@ -1,0 +1,10 @@
+.vscode
+.env
+.venv
+.python-version
+pyproject.toml
+uv.lock
+venv
+__pycache__
+*.db
+*.json
