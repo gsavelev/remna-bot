@@ -8,6 +8,7 @@ from remnawave.models import (
     CreateUserResponseDto,
     DeleteUserResponseDto,
     GetUserByUsernameResponseDto,
+    GetUserByUuidResponseDto,
 )
 
 from src.config import RemnawaveConfig
@@ -42,12 +43,18 @@ class RemnawaveUserManager:
         )
         return await self._sdk.users.create_user(body=request)
 
+    async def get_user(
+        self,
+        uuid: str,
+    ) -> GetUserByUuidResponseDto:
+        return await self._sdk.users.get_user_by_uuid(uuid=uuid)
+
     async def get_user_by_username(
         self,
         username: str,
     ) -> GetUserByUsernameResponseDto:
         return await self._sdk.users.get_user_by_username(username=username)
-
+    
     async def remove_user(self, uuid: str) -> DeleteUserResponseDto:
         return await self._sdk.users.delete_user(uuid=uuid)
 

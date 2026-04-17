@@ -11,16 +11,16 @@ async def main() -> None:
     config = RemnawaveConfig.from_env()
     manager = RemnawaveUserManager(config)
 
-    created_user = await manager.add_user(
+    user = await manager.add_user(
         username="test_user",
         expire_at=datetime.now(UTC) + timedelta(days=30),
         traffic_limit_bytes=50 * 1024 * 1024 * 1024,
         description="Created from the Remnawave SDK wrapper",
     )
-    print(f"Created user: {created_user.username}")
+    print(f"Created user: {user.username}, UUID: {user.uuid}, with sub url: {user.subscription_url} ")
 
-    deleted_user = await manager.remove_user_by_username("test_user")
-    print(f"Deleted user: {deleted_user.is_deleted}")
+    user = await manager.remove_user_by_username("test_user")
+    print(f"Deleted user: {user.is_deleted}")
 
 
 if __name__ == "__main__":
