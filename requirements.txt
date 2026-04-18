@@ -2,6 +2,12 @@
 #    uv export --no-hashes --format requirements-txt
 annotated-types==0.7.0
     # via pydantic
+aiogram==3.22.0
+    # via remna-bot
+aiofiles==24.1.0
+    # via aiogram
+aiosqlite==0.21.0
+    # via remna-bot
 anyio==4.13.0
     # via httpx
 certifi==2026.2.25
@@ -42,14 +48,19 @@ pydantic-core==2.33.2
     # via
     #   pydantic
     #   remnawave
+python-magic==0.4.27
+    # via aiogram
 rapid-api-client==0.6.0
     # via remnawave
 remnawave==2.7.1
     # via remna-bot
 sniffio==1.3.1
     # via httpx
+sqlalchemy==2.0.43
+    # via remna-bot
 typing-extensions==4.15.0
     # via
+    #   aiogram
     #   anyio
     #   pydantic
     #   pydantic-core

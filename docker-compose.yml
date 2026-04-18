@@ -1,0 +1,12 @@
+services:
+  remna-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: remna-bot
+    container_name: remna-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
