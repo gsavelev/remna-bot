@@ -4,7 +4,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-from aiogram import Bot, Dispatcher, Router
+from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.types import Message, User as TelegramUser
 from aiogram.utils.token import validate_token
@@ -46,6 +46,7 @@ class RemnaTelegramBot:
         await self._bot.session.close()
 
     def _register_routes(self) -> None:
+        self._router.message.filter(F.chat.type == "private")
         self._router.message.register(self._handle_start, Command("start"))
         self._router.message.register(self._handle_delete_uuid, Command("delete_uuid"))
         self._router.message.register(self._handle_delete_username, Command("delete_username"))
