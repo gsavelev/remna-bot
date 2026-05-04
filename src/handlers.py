@@ -14,6 +14,7 @@ from src.database import Database
 from src.rw_client import RemnawaveUserManager
 
 _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
+_REMNA_USERNAME_MAX_LENGTH = 36
 
 
 class RemnaTelegramBot:
@@ -183,7 +184,10 @@ class RemnaTelegramBot:
             normalized = re.sub(r"[^a-z0-9]+", "_", user.full_name.lower())
             base = normalized.strip("_") or "telegram_user"
         base = re.sub(r"[^a-z0-9_]", "_", base)
-        return f"{base}_{user.id}"
+        username = f"{base}_{user.id}"
+        if len(username) > _REMNA_USERNAME_MAX_LENGTH:
+            return f"telegram_user_{user.id}"
+        return username
 
     @staticmethod
     def _extract_path(subscription_url: str) -> str:
