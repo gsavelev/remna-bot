@@ -11,6 +11,7 @@ from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.types import (
     CallbackQuery,
+    CopyTextButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -76,7 +77,10 @@ class RemnaTelegramBot:
         happ_subscription_url = await self._happ_crypto_subscription_url(subscription_url)
         keyboard_rows = [
             [InlineKeyboardButton(text="скачать приложение", url=_HAPP_DOWNLOAD_URL)],
-            [InlineKeyboardButton(text="добавить подписку", url=happ_subscription_url)],
+            [InlineKeyboardButton(
+                text="скопировать подписку",
+                copy_text=CopyTextButton(text=happ_subscription_url),
+            )],
         ]
         if self._is_admin(user.id):
             keyboard_rows.append(
@@ -86,7 +90,7 @@ class RemnaTelegramBot:
             inline_keyboard=keyboard_rows,
         )
         await message.answer(
-            "1. скачай и установи приложение\n2. добавь в него подписку\n3. включи vpn",
+            "1. скачай и установи приложение\n2. скопирую и вставь в него подписку\n3. включи vpn",
             reply_markup=keyboard,
             disable_web_page_preview=True,
         )
