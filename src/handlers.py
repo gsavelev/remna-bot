@@ -113,7 +113,7 @@ class RemnaTelegramBot:
     async def _handle_add_user_button(self, callback: CallbackQuery) -> None:
         user = callback.from_user
         if not await self._ensure_user_access(user):
-            await callback.answer("service forbidden", show_alert=True)
+            await callback.answer("denied", show_alert=True)
             return
         if not self._is_admin(user.id):
             await callback.answer("admin permissions required", show_alert=True)
@@ -128,7 +128,7 @@ class RemnaTelegramBot:
     async def _handle_delete_user_button(self, callback: CallbackQuery) -> None:
         user = callback.from_user
         if not await self._ensure_user_access(user):
-            await callback.answer("service forbidden", show_alert=True)
+            await callback.answer("denied", show_alert=True)
             return
         if not self._is_admin(user.id):
             await callback.answer("admin permissions required", show_alert=True)
@@ -172,8 +172,8 @@ class RemnaTelegramBot:
             tg_username=target_user.tg_username,
             tg_name=target_user.tg_name,
         )
+        await message.answer("user added")
         await message.answer(
-            "user added\n\n"
             f"`{self._escape_markdown_code(subscription_url)}`",
             disable_web_page_preview=True,
             parse_mode="MarkdownV2",
@@ -216,7 +216,7 @@ class RemnaTelegramBot:
 
     async def _ensure_access(self, message: Message, user: TelegramUser) -> bool:
         if not await self._ensure_user_access(user):
-            await message.answer("service forbidden")
+            await message.answer("denied")
             return False
         return True
 
