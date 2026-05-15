@@ -123,7 +123,7 @@ class RemnaTelegramBot:
         self._awaiting_delete_identifier.discard(user.id)
         await callback.answer()
         if callback.message is not None:
-            await callback.message.answer("send tg_id or tg_id @username")
+            await callback.message.answer("send tg_id or tg_username")
 
     async def _handle_delete_user_button(self, callback: CallbackQuery) -> None:
         user = callback.from_user
@@ -164,7 +164,7 @@ class RemnaTelegramBot:
 
         target_user = await self._get_or_create_user_for_admin_add(identifier)
         if target_user is None:
-            await message.answer("send tg_id or tg_id @username")
+            await message.answer("send tg_id or tg_username")
             return
 
         subscription_url = await self._ensure_subscription_for_user(
