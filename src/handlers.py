@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta
+from json import JSONDecodeError
+from typing import Any
 from urllib.parse import urlparse
 
+import httpx
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.types import (
@@ -22,6 +25,8 @@ from src.rw_client import RemnawaveUserManager
 _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
 _REMNA_USERNAME_MAX_LENGTH = 36
 _DELETE_USER_CALLBACK = "delete_user_by_username"
+_HAPP_DOWNLOAD_URL = "https://www.happ.su/main/ru"
+_HAPP_CRYPTO_API_URL = "https://crypto.happ.su/api-v2.php"
 
 
 class RemnaTelegramBot:
@@ -68,9 +73,10 @@ class RemnaTelegramBot:
         if not await self._ensure_access(message, user):
             return
         subscription_url = await self._ensure_subscription(user)
+        happ_subscription_url = await self._happ_crypto_subscription_url(subscription_url)
         keyboard_rows = [
-            [InlineKeyboardButton(text="скачать приложение", url="https://www.happ.su/main/ru")],
-            [InlineKeyboardButton(text="добавить подписку", url=subscription_url)],
+            [InlineKeyboardButton(text="скачать приложение", url=_HAPP_DOWNLOAD_URL)],
+            [InlineKeyboardButton(text="добавить подписку", url=happ_subscription_url)],
         ]
         if self._is_admin(user.id):
             keyboard_rows.append(
@@ -88,16 +94,16 @@ class RemnaTelegramBot:
     async def _handle_delete_user_button(self, callback: CallbackQuery) -> None:
         user = callback.from_user
         if not await self._ensure_user_access(user):
-            await callback.answer("Service forbidden.", show_alert=True)
+            await callback.answer("service forbidden", show_alert=True)
             return
         if not self._is_admin(user.id):
-            await callback.answer("Admin permissions required.", show_alert=True)
+            await callback.answer("admin permissions required", show_alert=True)
             return
 
         self._awaiting_delete_username.add(user.id)
         await callback.answer()
         if callback.message is not None:
-            await callback.message.answer("Отправьте username пользователя для удаления.")
+            await callback.message.answer("send the username")
 
     async def _handle_delete_username_input(self, message: Message) -> None:
         user = self._require_user(message)
@@ -108,18 +114,62 @@ class RemnaTelegramBot:
         if not await self._ensure_access(message, user):
             return
         if not self._is_admin(user.id):
-            await message.answer("Admin permissions required.")
+            await message.answer("admin permissions required")
             return
 
         username = (message.text or "").strip().lstrip("@")
         if not username:
-            await message.answer("Username is required.")
+            await message.answer("username is required")
             return
 
         result = await self._rw_manager.remove_user_by_username(username)
         await self._db.delete_subscription_by_username(username)
         is_deleted = bool(getattr(result, "is_deleted", False))
-        await message.answer("User deleted." if is_deleted else "User was not deleted.")
+        await message.answer("user deleted" if is_deleted else "user was not deleted")
+
+    async def _happ_crypto_subscription_url(self, subscription_url: str) -> str:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                _HAPP_CRYPTO_API_URL,
+                json={"url": subscription_url},
+            )
+        response.raise_for_status()
+        crypto_url = self._extract_happ_crypto_url(response)
+        if crypto_url is None:
+            raise RuntimeError("Happ crypto API returned no encrypted URL")
+        return crypto_url
+
+    @staticmethod
+    def _extract_happ_crypto_url(response: httpx.Response) -> str | None:
+        text = response.text.strip()
+        try:
+            payload: Any = response.json()
+        except JSONDecodeError:
+            payload = text
+        return RemnaTelegramBot._find_happ_crypto_url(payload)
+
+    @staticmethod
+    def _find_happ_crypto_url(value: Any) -> str | None:
+        if isinstance(value, str):
+            stripped = value.strip().strip('"')
+            if stripped.startswith(("happ://crypt", "happ://crypto")):
+                return stripped
+            return None
+        if isinstance(value, dict):
+            for key in ("url", "link", "result", "data", "encrypted_url", "encryptedLink"):
+                crypto_url = RemnaTelegramBot._find_happ_crypto_url(value.get(key))
+                if crypto_url is not None:
+                    return crypto_url
+            for item in value.values():
+                crypto_url = RemnaTelegramBot._find_happ_crypto_url(item)
+                if crypto_url is not None:
+                    return crypto_url
+        if isinstance(value, list):
+            for item in value:
+                crypto_url = RemnaTelegramBot._find_happ_crypto_url(item)
+                if crypto_url is not None:
+                    return crypto_url
+        return None
 
     async def _sync_user(self, user: TelegramUser) -> None:
         await self._db.upsert_user(
@@ -132,7 +182,7 @@ class RemnaTelegramBot:
 
     async def _ensure_access(self, message: Message, user: TelegramUser) -> bool:
         if not await self._ensure_user_access(user):
-            await message.answer("Service forbidden.")
+            await message.answer("service forbidden")
             return False
         return True
 
