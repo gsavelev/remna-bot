@@ -104,7 +104,7 @@ class RemnaTelegramBot:
             "1\\. скачай и установи приложение\n"
             "2\\. скопируй и вставь в него ссылку\n\n"
             f"`{self._escape_markdown_code(subscription_url)}`\n\n"
-            "3\\. включи vpn \\(обычно круглой кнопкой\\)",
+            "3\\. включи vpn \\(обычно – круглой кнопкой\\)",
             reply_markup=keyboard,
             disable_web_page_preview=True,
             parse_mode="MarkdownV2",
