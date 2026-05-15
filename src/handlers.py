@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta
-from json import JSONDecodeError
-from typing import Any
 from urllib.parse import urlparse
 
-import httpx
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.types import (
     CallbackQuery,
-    CopyTextButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -27,7 +23,6 @@ _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
 _REMNA_USERNAME_MAX_LENGTH = 36
 _DELETE_USER_CALLBACK = "delete_user_by_username"
 _HAPP_DOWNLOAD_URL = "https://www.happ.su/main/ru"
-_HAPP_CRYPTO_API_URL = "https://crypto.happ.su/api-v2.php"
 
 
 class RemnaTelegramBot:
@@ -74,13 +69,8 @@ class RemnaTelegramBot:
         if not await self._ensure_access(message, user):
             return
         subscription_url = await self._ensure_subscription(user)
-        happ_subscription_url = await self._happ_crypto_subscription_url(subscription_url)
         keyboard_rows = [
             [InlineKeyboardButton(text="скачать приложение", url=_HAPP_DOWNLOAD_URL)],
-            [InlineKeyboardButton(
-                text="скопировать подписку",
-                copy_text=CopyTextButton(text=happ_subscription_url),
-            )],
         ]
         if self._is_admin(user.id):
             keyboard_rows.append(
@@ -90,9 +80,13 @@ class RemnaTelegramBot:
             inline_keyboard=keyboard_rows,
         )
         await message.answer(
-            "1. скачай и установи приложение\n2. скопирую и вставь в него подписку\n3. включи vpn",
+            "1. скачай и установи приложение\n"
+            "2. скопируй и вставь в него подписку\n\n"
+            f"`{self._escape_markdown_code(subscription_url)}`\n\n"
+            "3. нажми круглую кнопку",
             reply_markup=keyboard,
             disable_web_page_preview=True,
+            parse_mode="MarkdownV2",
         )
 
     async def _handle_delete_user_button(self, callback: CallbackQuery) -> None:
@@ -130,50 +124,6 @@ class RemnaTelegramBot:
         await self._db.delete_subscription_by_username(username)
         is_deleted = bool(getattr(result, "is_deleted", False))
         await message.answer("user deleted" if is_deleted else "user was not deleted")
-
-    async def _happ_crypto_subscription_url(self, subscription_url: str) -> str:
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(
-                _HAPP_CRYPTO_API_URL,
-                json={"url": subscription_url},
-            )
-        response.raise_for_status()
-        crypto_url = self._extract_happ_crypto_url(response)
-        if crypto_url is None:
-            raise RuntimeError("Happ crypto API returned no encrypted URL")
-        return crypto_url
-
-    @staticmethod
-    def _extract_happ_crypto_url(response: httpx.Response) -> str | None:
-        text = response.text.strip()
-        try:
-            payload: Any = response.json()
-        except JSONDecodeError:
-            payload = text
-        return RemnaTelegramBot._find_happ_crypto_url(payload)
-
-    @staticmethod
-    def _find_happ_crypto_url(value: Any) -> str | None:
-        if isinstance(value, str):
-            stripped = value.strip().strip('"')
-            if stripped.startswith(("happ://crypt", "happ://crypto")):
-                return stripped
-            return None
-        if isinstance(value, dict):
-            for key in ("url", "link", "result", "data", "encrypted_url", "encryptedLink"):
-                crypto_url = RemnaTelegramBot._find_happ_crypto_url(value.get(key))
-                if crypto_url is not None:
-                    return crypto_url
-            for item in value.values():
-                crypto_url = RemnaTelegramBot._find_happ_crypto_url(item)
-                if crypto_url is not None:
-                    return crypto_url
-        if isinstance(value, list):
-            for item in value:
-                crypto_url = RemnaTelegramBot._find_happ_crypto_url(item)
-                if crypto_url is not None:
-                    return crypto_url
-        return None
 
     async def _sync_user(self, user: TelegramUser) -> None:
         await self._db.upsert_user(
@@ -275,6 +225,10 @@ class RemnaTelegramBot:
         if self._config.traffic_limit_gb is None:
             return None
         return self._config.traffic_limit_gb * 1024 * 1024 * 1024
+
+    @staticmethod
+    def _escape_markdown_code(value: str) -> str:
+        return value.replace("\\", "\\\\").replace("`", "\\`")
 
     @staticmethod
     def _require_user(message: Message) -> TelegramUser:
