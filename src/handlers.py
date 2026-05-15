@@ -80,10 +80,10 @@ class RemnaTelegramBot:
             inline_keyboard=keyboard_rows,
         )
         await message.answer(
-            "1. скачай и установи приложение\n"
-            "2. скопируй и вставь в него подписку\n\n"
+            "1\. скачай и установи приложение\n"
+            "2\. скопируй и вставь в него подписку\n\n"
             f"`{subscription_url}`\n\n"
-            "3. нажми круглую кнопку",
+            "3\. нажми круглую кнопку",
             reply_markup=keyboard,
             disable_web_page_preview=True,
             parse_mode="MarkdownV2",
