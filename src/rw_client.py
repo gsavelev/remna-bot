@@ -63,13 +63,6 @@ class RemnawaveUserManager:
         username: str,
     ) -> GetUserByUsernameResponseDto:
         return await self._sdk.users.get_user_by_username(username=username)
-    
+
     async def remove_user(self, uuid: str) -> DeleteUserResponseDto:
         return await self._sdk.users.delete_user(uuid=uuid)
-
-    async def remove_user_by_username(
-        self,
-        username: str,
-    ) -> DeleteUserResponseDto:
-        user = await self.get_user_by_username(username)
-        return await self.remove_user(str(user.uuid))

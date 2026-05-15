@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func, select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
 
@@ -110,6 +110,14 @@ class Database:
                 .where(User.tg_id == tg_id)
             )
 
+    async def get_user_by_tg_username(self, tg_username: str) -> User | None:
+        async with self._session_factory() as session:
+            return await session.scalar(
+                select(User)
+                .options(selectinload(User.subscription))
+                .where(func.lower(User.tg_username) == tg_username.lower())
+            )
+
     async def get_subscription_by_tg_id(self, tg_id: int) -> Subscription | None:
         async with self._session_factory() as session:
             return await session.scalar(
@@ -144,10 +152,10 @@ class Database:
             await session.commit()
             return subscription
 
-    async def delete_subscription_by_username(self, username: str) -> bool:
+    async def delete_subscription_by_tg_id(self, tg_id: int) -> bool:
         async with self._session_factory() as session:
             subscription = await session.scalar(
-                select(Subscription).where(Subscription.username == username)
+                select(Subscription).where(Subscription.user_tg_id == tg_id)
             )
             if subscription is None:
                 return False
