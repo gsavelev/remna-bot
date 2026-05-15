@@ -82,7 +82,7 @@ class RemnaTelegramBot:
         await message.answer(
             "1. скачай и установи приложение\n"
             "2. скопируй и вставь в него подписку\n\n"
-            f"`{self._escape_markdown_code(subscription_url)}`\n\n"
+            f"`{subscription_url}`\n\n"
             "3. нажми круглую кнопку",
             reply_markup=keyboard,
             disable_web_page_preview=True,
@@ -225,10 +225,6 @@ class RemnaTelegramBot:
         if self._config.traffic_limit_gb is None:
             return None
         return self._config.traffic_limit_gb * 1024 * 1024 * 1024
-
-    @staticmethod
-    def _escape_markdown_code(value: str) -> str:
-        return value.replace("\\", "\\\\").replace("`", "\\`")
 
     @staticmethod
     def _require_user(message: Message) -> TelegramUser:
