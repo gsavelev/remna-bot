@@ -6,7 +6,13 @@ from urllib.parse import urlparse
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
-from aiogram.types import Message, User as TelegramUser
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    User as TelegramUser,
+)
 from aiogram.utils.token import validate_token
 
 from src.config import TelegramConfig
@@ -15,6 +21,7 @@ from src.rw_client import RemnawaveUserManager
 
 _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
 _REMNA_USERNAME_MAX_LENGTH = 36
+_DELETE_USER_CALLBACK = "delete_user_by_username"
 
 
 class RemnaTelegramBot:
@@ -32,6 +39,7 @@ class RemnaTelegramBot:
         self._bot = Bot(token=bot_config.bot_token)
         self._dispatcher = Dispatcher()
         self._router = Router()
+        self._awaiting_delete_username: set[int] = set()
         self._register_routes()
 
     async def run(self) -> None:
@@ -49,57 +57,67 @@ class RemnaTelegramBot:
     def _register_routes(self) -> None:
         self._router.message.filter(F.chat.type == "private")
         self._router.message.register(self._handle_start, Command("start"))
-        self._router.message.register(self._handle_delete_uuid, Command("delete_uuid"))
-        self._router.message.register(self._handle_delete_username, Command("delete_username"))
+        self._router.callback_query.register(
+            self._handle_delete_user_button,
+            F.data == _DELETE_USER_CALLBACK,
+        )
+        self._router.message.register(self._handle_delete_username_input, F.text)
 
     async def _handle_start(self, message: Message) -> None:
         user = self._require_user(message)
         if not await self._ensure_access(message, user):
             return
         subscription_url = await self._ensure_subscription(user)
-        lines = [
-            f"Subscription URL: {subscription_url}",
-            "Copy-paste subscription URL to Happ https://www.happ.su/main/ru\n\n",
+        keyboard_rows = [
+            [InlineKeyboardButton(text="скачать приложение", url="https://www.happ.su/main/ru")],
+            [InlineKeyboardButton(text="добавить подписку", url=subscription_url)],
         ]
         if self._is_admin(user.id):
-            lines.append("/delete_uuid <uuid> - delete a subscription by UUID")
-            lines.append("/delete_username <username> - delete a subscription by username")
-        await message.answer("\n".join(lines), disable_web_page_preview=True)
+            keyboard_rows.append(
+                [InlineKeyboardButton(text="удалить пользователя", callback_data=_DELETE_USER_CALLBACK)],
+            )
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=keyboard_rows,
+        )
+        await message.answer(
+            "1. скачай и установи приложение\n2. добавь в него подписку\n3. включи vpn",
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
 
-    async def _handle_delete_uuid(self, message: Message) -> None:
+    async def _handle_delete_user_button(self, callback: CallbackQuery) -> None:
+        user = callback.from_user
+        if not await self._ensure_user_access(user):
+            await callback.answer("Service forbidden.", show_alert=True)
+            return
+        if not self._is_admin(user.id):
+            await callback.answer("Admin permissions required.", show_alert=True)
+            return
+
+        self._awaiting_delete_username.add(user.id)
+        await callback.answer()
+        if callback.message is not None:
+            await callback.message.answer("Отправьте username пользователя для удаления.")
+
+    async def _handle_delete_username_input(self, message: Message) -> None:
         user = self._require_user(message)
+        if user.id not in self._awaiting_delete_username:
+            return
+        self._awaiting_delete_username.discard(user.id)
+
         if not await self._ensure_access(message, user):
             return
         if not self._is_admin(user.id):
             await message.answer("Admin permissions required.")
             return
 
-        argument = self._command_argument(message)
-        if not argument:
-            await message.answer("Usage: /delete_uuid <uuid>")
+        username = (message.text or "").strip().lstrip("@")
+        if not username:
+            await message.answer("Username is required.")
             return
 
-        result = await self._rw_manager.remove_user(argument)
-        await self._db.delete_subscription_by_uuid(argument)
-        is_deleted = bool(getattr(result, "is_deleted", False))
-        await message.answer("User deleted." if is_deleted else "User was not deleted.")
-
-    async def _handle_delete_username(self, message: Message) -> None:
-        user = self._require_user(message)
-        if not await self._ensure_access(message, user):
-            return
-        if not self._is_admin(user.id):
-            await message.answer("Admin permissions required.")
-            return
-
-        argument = self._command_argument(message)
-        if not argument:
-            await message.answer("Usage: /delete_username <username>")
-            return
-
-        normalized_username = argument.lstrip("@")
-        result = await self._rw_manager.remove_user_by_username(normalized_username)
-        await self._db.delete_subscription_by_username(normalized_username)
+        result = await self._rw_manager.remove_user_by_username(username)
+        await self._db.delete_subscription_by_username(username)
         is_deleted = bool(getattr(result, "is_deleted", False))
         await message.answer("User deleted." if is_deleted else "User was not deleted.")
 
@@ -113,6 +131,12 @@ class RemnaTelegramBot:
         )
 
     async def _ensure_access(self, message: Message, user: TelegramUser) -> bool:
+        if not await self._ensure_user_access(user):
+            await message.answer("Service forbidden.")
+            return False
+        return True
+
+    async def _ensure_user_access(self, user: TelegramUser) -> bool:
         is_chat_member = await self._is_chat_member(user.id)
         await self._db.upsert_user(
             tg_id=user.id,
@@ -121,10 +145,7 @@ class RemnaTelegramBot:
             is_chat_member=is_chat_member,
             is_admin=self._is_admin(user.id),
         )
-        if not is_chat_member:
-            await message.answer("Service forbidden.")
-            return False
-        return True
+        return is_chat_member
 
     async def _ensure_subscription(self, user: TelegramUser) -> str:
         existing = await self._db.get_subscription_by_tg_id(user.id)
@@ -200,12 +221,6 @@ class RemnaTelegramBot:
         if self._config.traffic_limit_gb is None:
             return None
         return self._config.traffic_limit_gb * 1024 * 1024 * 1024
-
-    @staticmethod
-    def _command_argument(message: Message) -> str | None:
-        text = (message.text or "").strip()
-        _, _, remainder = text.partition(" ")
-        return remainder.strip() or None
 
     @staticmethod
     def _require_user(message: Message) -> TelegramUser:

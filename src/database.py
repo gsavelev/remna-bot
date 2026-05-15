@@ -144,17 +144,6 @@ class Database:
             await session.commit()
             return subscription
 
-    async def delete_subscription_by_uuid(self, uuid: str) -> bool:
-        async with self._session_factory() as session:
-            subscription = await session.scalar(
-                select(Subscription).where(Subscription.uuid == uuid)
-            )
-            if subscription is None:
-                return False
-            await session.delete(subscription)
-            await session.commit()
-            return True
-
     async def delete_subscription_by_username(self, username: str) -> bool:
         async with self._session_factory() as session:
             subscription = await session.scalar(

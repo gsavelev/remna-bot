@@ -23,10 +23,7 @@
 - отправляет пользователю `subscription_url`;
 - показывает подсказку: вставить ссылку в Happ: `https://www.happ.su/main/ru`.
 
-Администраторы, перечисленные в `TG_ADMIN_IDS`, дополнительно получают команды удаления:
-
-- `/delete_uuid <uuid>`
-- `/delete_username <username>`
+Администраторы, перечисленные в `TG_ADMIN_IDS`, дополнительно получают кнопку удаления пользователя по username.
 
 ## Стек
 
@@ -160,10 +157,7 @@ docker compose logs -f
 
 - `/start` — проверка доступа, создание или получение подписки и выдача `subscription_url`.
 
-Админские:
-
-- `/delete_uuid <uuid>` — удалить пользователя Remnawave по UUID.
-- `/delete_username <username>` — удалить пользователя Remnawave по username.
+Администраторы могут удалить пользователя Remnawave по username через кнопку `удалить пользователя`.
 
 ## Поведение доступа
 
@@ -181,4 +175,3 @@ docker compose logs -f
 - добавить Alembic-миграции вместо `create_all`;
 - вынести тексты сообщений в отдельный слой локализации;
 - добавить structured logging и healthcheck для контейнера.
-
