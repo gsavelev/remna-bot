@@ -23,7 +23,6 @@ _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
 _REMNA_USERNAME_MAX_LENGTH = 36
 _ADD_USER_CALLBACK = "add_user"
 _DELETE_USER_CALLBACK = "delete_user_by_username"
-_HAPP_DOWNLOAD_URL = "https://www.happ.su/main/ru"
 
 
 class RemnaTelegramBot:
@@ -76,7 +75,7 @@ class RemnaTelegramBot:
             return
         subscription_url = await self._ensure_subscription(user)
         keyboard_rows = [
-            [InlineKeyboardButton(text="скачать приложение", url=_HAPP_DOWNLOAD_URL)],
+            [InlineKeyboardButton(text="скачать приложение", url=str(self._config.download_url))],
         ]
         if self._is_admin(user.id):
             keyboard_rows.append(
