@@ -2,10 +2,12 @@
 .git
 .env
 .venv
+venv
 .vscode
 .python-version
+uv.lock
+pyproject.toml
 .github
-venv
 __pycache__
 docs
 LICENSE

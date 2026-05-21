@@ -1,177 +1,222 @@
-# Remna Bot
+**Язык / Language:** Русский **|** [English](./docs/README.en_US.md)
 
-Телеграм-бот для выдачи персональных `subscription_url` из панели Remnawave.
+# Telegram бот для Remnawave
 
-Бот работает асинхронно на `aiogram`, хранит состояние в SQLite через SQLAlchemy ORM и умеет:
+## Описание проекта
 
-- проверять, состоит ли пользователь в нужном Telegram-чате;
-- создавать или повторно отдавать персональную подписку Remnawave;
-- назначать дефолтный internal squad при создании пользователя в Remnawave;
-- сохранять данные пользователей и подписок в локальную БД;
-- удалять пользователей Remnawave по `uuid` или `username` через админ-команды.
+Этот проект представляет собой Telegram-бота для выдачи персональных VPN-подписок через панель [Remnawave](https://github.com/remnawave). Бот проверяет членство пользователя в заданном чате, создаёт подписку в Remnawave и отправляет пользователю `subscription_url` для импорта в VPN-клиент.
 
-## Как это работает
+Основные возможности:
 
-Пользователь пишет боту `/start`.
+- Проверка членства в обязательном чате / группе
+- Создание и повторная выдача подписки Remnawave (`subscription_url`)
+- Назначение internal squad по умолчанию при создании пользователя
+- Ограничение срока действия подписки и лимита трафика
+- Административные действия: добавление подписки по `tg_id` / `username` и удаление пользователя в Remnawave
 
-Если пользователь не состоит в чате, указанном в `TG_CHAT_ID`, бот отвечает `Service forbidden.` и не продолжает диалог.
+## Установка и настройка
 
-Если пользователь состоит в чате, бот:
+### Предварительные требования
 
-- обновляет запись о пользователе в таблице `users`;
-- создает подписку в Remnawave или возвращает уже существующую;
-- отправляет пользователю `subscription_url`;
-- показывает подсказку: вставить ссылку в Happ: `https://www.happ.su/main/ru`.
+- Python 3.12+
+- Панель Remnawave с API-токеном
+- Telegram-бот (созданный через [@BotFather](https://t.me/BotFather))
+- Telegram-чат или группа, в которой должны состоять пользователи бота (бот должен быть добавлен в чат и иметь права видеть участников)
 
-Администраторы, перечисленные в `TG_ADMIN_IDS`, дополнительно получают кнопки добавления и удаления подписки по Telegram username или Telegram id.
+### Настройка переменных окружения
 
-## Стек
+Обязательные параметры в `.env`:
 
-- Python 3.12
-- aiogram 3
-- SQLAlchemy 2
-- SQLite
-- Remnawave SDK
-- Docker Compose
+- `REMNAWAVE_URL` — URL панели Remnawave (например: `https://panel.example.com/`)
+- `REMNAWAVE_TOKEN` — API-токен Remnawave
+- `TG_BOT_TOKEN` — токен Telegram-бота от @BotFather
+- `TG_CHAT_ID` — ID чата / группы, членство в котором обязательно для доступа
+- `TG_ADMIN_IDS` — ID администраторов через запятую
+- `DB_PATH` — путь к файлу SQLite (например: `./data/remna-bot.db`)
 
-## Структура проекта
+Дополнительные параметры:
 
-```text
-.
-├── src/
-│   ├── app.py         # точка входа
-│   ├── handlers.py    # Telegram handlers и логика бота
-│   ├── database.py    # ORM-модели и доступ к БД
-│   ├── rw_client.py   # клиент для Remnawave API
-│   └── config.py      # чтение конфигурации из env
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── .env.example
+- `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` — UUID internal squad для новых пользователей
+- `SUBSCRIPTION_EXPIRE_DAYS` — срок жизни подписки в днях (по умолчанию: `30`)
+- `TRAFFIC_LIMIT_GB` — лимит трафика в гигабайтах (если не задан — без лимита)
+- `TG_POLL_TIMEOUT_SECONDS` — timeout long polling для Telegram API (по умолчанию: `30`)
+- `VPN_CLIENT_DOWNLOAD_URL` — ссылка на страницу загрузки VPN-клиента (по умолчанию: [Happ](https://www.happ.su/main/ru))
+
+Пример `.env` — в [.env.example](./.env.example).
+
+### Установка из репозитория
+
+1. Клонируйте репозиторий:
+
+```bash
+git clone https://github.com/gsavelev/remna-bot.git
+cd remna-bot
 ```
 
-## Переменные окружения
-
-Пример лежит в [.env.example](/Users/g/Yandex.Disk.localized/Projects/snicklefritz/remna-bot/.env.example:1).
-
-Обязательные переменные:
-
-- `REMNAWAVE_URL` — URL панели Remnawave.
-- `REMNAWAVE_TOKEN` — API token Remnawave.
-- `TG_BOT_TOKEN` — токен Telegram-бота.
-- `TG_CHAT_ID` — ID чата или канала, членство в котором обязательно для доступа.
-- `TG_ADMIN_IDS` — список Telegram user id администраторов через запятую.
-- `DB_PATH` — путь до SQLite-файла.
-
-Необязательные, но практически полезные:
-
-- `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` — UUID internal squad, который назначается новым пользователям по умолчанию.
-- `SUBSCRIPTION_EXPIRE_DAYS` — срок жизни подписки в днях.
-- `TRAFFIC_LIMIT_GB` — лимит трафика в гигабайтах.
-- `TG_POLL_TIMEOUT_SECONDS` — timeout long polling для Telegram API.
-
-Пример:
-
-```env
-REMNAWAVE_URL=https://panel.example.com/
-REMNAWAVE_TOKEN=your_remnawave_token
-REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID=123e4567-e89b-12d3-a456-426614174000
-
-SUBSCRIPTION_EXPIRE_DAYS=30
-TRAFFIC_LIMIT_GB=50
-
-TG_BOT_TOKEN=123456:telegram-token
-TG_CHAT_ID=-1001234567890
-TG_ADMIN_IDS=111111111,222222222
-TG_POLL_TIMEOUT_SECONDS=30
-
-DB_PATH=./data/remna-bot.db
-```
-
-## Локальный запуск
-
-1. Создайте `.env` на основе `.env.example`.
-2. Установите зависимости.
-3. Запустите приложение.
+2. Установите зависимости:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+3. Настройте переменные окружения:
+
+```bash
+cp .env.example .env
+# отредактируйте .env своими значениями
+```
+
+4. Запустите бота:
+
+```bash
 python -m src.app
 ```
 
-После старта бот начнет long polling и автоматически создаст SQLite-базу по пути из `DB_PATH`.
+При первом запуске SQLite-база создаётся автоматически по пути из `DB_PATH`.
 
-## Запуск через Docker Compose
+### Установка из Packages (GitHub Container Registry)
 
-1. Подготовьте `.env`.
-2. Для контейнера путь `DB_PATH=./data/remna-bot.db` внутри `WORKDIR=/app` будет сохранен в `/app/data/remna-bot.db`.
-3. Эта директория проброшена volume `./data:/app/data`, поэтому файл БД сохраняется на хосте.
-4. Запустите сборку и сервис.
+Этот вариант удобен для запуска на сервере без локальной установки Python.
 
-```bash
-docker compose up --build -d
-```
-
-Остановить сервис:
+1. Скачайте образ из GHCR:
 
 ```bash
-docker compose down
+docker pull ghcr.io/gsavelev/remna-bot:latest
 ```
 
-Логи:
+2. Клонируйте репозиторий:
 
 ```bash
-docker compose logs -f
+git clone https://github.com/gsavelev/remna-bot.git
+cd remna-bot
 ```
 
-## База данных
+3. Подготовьте файл окружения:
 
-Бот создает две таблицы.
+```bash
+cp .env.example .env
+# отредактируйте ./.env своими значениями
+```
 
-`users`:
+4. Запустите контейнер:
 
-- `id`
-- `tg_id`
-- `tg_username`
-- `tg_name`
-- `is_chat_member`
-- `is_admin`
-- `created_at`
-- `updated_at`
+```bash
+docker run -d --name remna-bot \
+  --restart unless-stopped \
+  --env-file ./.env \
+  -v "$(pwd)/data:/app/data" \
+  --label com.centurylinklabs.watchtower.enable=true \
+  ghcr.io/gsavelev/remna-bot:latest
+```
 
-`subscriptions`:
+5. (Опционально) Автоматическое обновление через `Watchtower`:\
+Если запустить `watchtower`, он будет подтягивать обновлённый образ и перезапускать контейнер. Так как в примере уже добавлен label `com.centurylinklabs.watchtower.enable=true`, контейнер будет обновляться автоматически. Официальная документация: [https://containrrr.dev/watchtower/](https://containrrr.dev/watchtower/)
 
-- `id`
-- `user_tg_id`
-- `uuid`
-- `username`
-- `path`
-- `created_at`
-- `updated_at`
+## Техническая архитектура
 
-## Команды бота
+### Файловая структура
 
-Пользовательские:
+```
+./
+├── src/
+│   ├── app.py              # Точка входа, инициализация и запуск polling
+│   ├── config.py           # Загрузка и валидация конфигурации (Pydantic)
+│   ├── database.py         # ORM-модели и асинхронный доступ к SQLite
+│   ├── rw_client.py        # Обёртка над Remnawave SDK
+│   └── handlers.py         # Обработчики команд и callback-кнопок
+├── docs/
+│   └── README.en_US.md     # Документация на английском языке
+├── data/
+│   └── remna-bot.db        # SQLite (создаётся при первом запуске)
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+└── README.md
+```
 
-- `/start` — проверка доступа, создание или получение подписки и выдача `subscription_url`.
+### База данных
 
-Администраторы могут добавить подписку через кнопку `добавить пользователя`, отправив `tg_id` или `tg_id @username`. Это не требует членства пользователя в чате. Администраторы также могут удалить подписку пользователя Remnawave через кнопку `удалить пользователя`, отправив Telegram username или Telegram id.
+Проект использует `SQLite` с `SQLAlchemy 2` (асинхронный драйвер `aiosqlite`). Схема создаётся через `create_all` при старте.
 
-## Поведение доступа
+1. **`users`** — пользователи Telegram:
+   - `tg_id` — ID пользователя в Telegram
+   - `tg_username` — username в Telegram
+   - `tg_name` — отображаемое имя
+   - `is_chat_member` — состоит ли в обязательном чате
+   - `is_admin` — флаг администратора (по `TG_ADMIN_IDS`)
+   - `created_at`, `updated_at` — метки времени
 
-- Бот не открывает сервис пользователю, если тот не состоит в чате `TG_CHAT_ID`.
-- Это ограничение действует на все взаимодействия с ботом, включая админ-команды.
-- Результат членства также сохраняется в базе в поле `is_chat_member`.
+2. **`subscriptions`** — подписки Remnawave:
+   - `user_tg_id` — связь с `users.tg_id`
+   - `uuid` — UUID пользователя в Remnawave
+   - `username` — username в Remnawave
+   - `path` — путь подписки из `subscription_url`
+   - `created_at`, `updated_at` — метки времени
 
-## Docker-заметки
+### Основные компоненты
 
-- При `DB_PATH=./data/remna-bot.db` SQLite-файл внутри контейнера будет лежать в `/app/data/remna-bot.db` – эта директория проброшена на хост как `./data`.
-- Файл `.env` подключается автоматически через `env_file`.
+#### 1. `app.py`
 
-## Что можно улучшить дальше
+Главный файл приложения:
 
-- добавить Alembic-миграции вместо `create_all`;
-- вынести тексты сообщений в отдельный слой локализации;
-- добавить structured logging и healthcheck для контейнера.
+- загружает конфигурацию из переменных окружения;
+- инициализирует БД и клиент Remnawave;
+- запускает long polling бота.
+
+#### 2. `config.py`
+
+Загрузка и валидация конфигурации через Pydantic:
+
+- `RemnawaveConfig` — URL, токен и optional internal squad;
+- `TelegramConfig` — токен бота, чат, админы, лимиты подписки, путь к БД.
+
+#### 3. `database.py`
+
+Модели `User` и `Subscription`, функции upsert и удаления записей.
+
+#### 4. `rw_client.py`
+
+Класс `RemnawaveUserManager` для работы с Remnawave API через официальный SDK:
+
+- создание пользователя;
+- получение по UUID или username;
+- удаление пользователя.
+
+#### 5. `handlers.py`
+
+Класс `RemnaTelegramBot`:
+
+- команда `/start` — проверка доступа и выдача подписки;
+- inline-кнопки для администраторов;
+
+## Интеграция с Remnawave
+
+Бот взаимодействует с панелью через [Remnawave SDK](https://pypi.org/project/remnawave/):
+
+1. Аутентификация по API-токену (`REMNAWAVE_TOKEN`)
+2. Создание пользователя с параметрами срока, лимитом трафика, `telegram_id` и internal squads
+3. Получение `subscription_url` из ответа API
+4. Повторное использование существующей подписки, если запись есть в локальной БД и пользователь найден в Remnawave
+
+Имя пользователя в Remnawave формируется из `telegram_username` и `tg_id` (до 36 символов).
+
+## Безопасность
+
+- Секреты и токены хранятся только в переменных окружения
+- Валидация конфигурации через Pydantic (`extra = forbid`)
+- Доступ к боту ограничен членством в `TG_CHAT_ID`
+- Административные действия доступны только ID из `TG_ADMIN_IDS`
+
+## Возможные проблемы и решения
+
+1. **Ошибки подключения к Remnawave** — проверьте `REMNAWAVE_URL`, токен и доступность панели с хоста, где запущен бот.
+2. **Ошибки базы данных** — проверьте права на запись в каталог `data` (или путь из `DB_PATH`).
+3. **Всем отвечает `denied`** — убедитесь, что `TG_CHAT_ID` верный, бот добавлен в чат и может вызывать `getChatMember`.
+4. **Подписка не создаётся** — проверьте лимиты панели, корректность `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` и логи контейнера / процесса.
+
+---
+
+*Дополнительно: [aiogram](https://docs.aiogram.dev/en/latest/), [Remnawave](https://github.com/remnawave).*
