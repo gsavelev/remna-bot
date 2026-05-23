@@ -5,12 +5,14 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import AnyUrl, BaseModel, Field
+from remnawave.enums import TrafficLimitStrategy
 
 
 class RemnawaveConfig(BaseModel):
     base_url: AnyUrl
     token: str = Field(min_length=1)
     default_internal_squad_uuid: UUID | None = None
+    traffic_limit_strategy: TrafficLimitStrategy = TrafficLimitStrategy.NO_RESET
 
     model_config = {
         "extra": "forbid",
@@ -23,6 +25,10 @@ class RemnawaveConfig(BaseModel):
             "base_url": os.getenv("REMNAWAVE_URL"),
             "token": os.getenv("REMNAWAVE_TOKEN"),
             "default_internal_squad_uuid": os.getenv("REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID") or None,
+            "traffic_limit_strategy": os.getenv(
+                "SUBSCRIPTION_RESET_STRATEGY",
+                TrafficLimitStrategy.NO_RESET.value,
+            ),
         }
         return cls.model_validate(data)
 

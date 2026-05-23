@@ -39,6 +39,7 @@ class RemnawaveUserManager:
             username=username,
             expire_at=expire_at,
             traffic_limit_bytes=traffic_limit_bytes,
+            traffic_limit_strategy=self._config.traffic_limit_strategy,
             description=description,
             tag=tag,
             email=email,
