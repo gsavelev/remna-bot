@@ -12,7 +12,7 @@ Main features:
 - Create and re-issue Remnawave subscriptions (`subscription_url`)
 - Assign a default internal squad when creating users
 - Configure subscription expiry and traffic limits
-- Admin actions: add a subscription by `tg_id` / `username` and delete Remnawave users
+- Run a daily subscription revision: if a user no longer belongs to the required chat, their Remnawave subscription is deleted
 
 ## Installation and setup
 
@@ -126,7 +126,7 @@ If you run `watchtower`, it will pull updated images and restart the container. 
 │   ├── config.py           # Env loading and validation (Pydantic)
 │   ├── database.py         # ORM models and async SQLite access
 │   ├── rw_client.py        # Remnawave SDK wrapper
-│   └── handlers.py         # Command and callback handlers
+│   └── handlers.py         # Bot command handlers
 ├── docs/
 │   └── README.en_US.md     # English documentation
 ├── data/
@@ -191,7 +191,7 @@ Pydantic-based configuration:
 `RemnaTelegramBot`:
 
 - `/start` — access check and subscription delivery;
-- inline buttons for administrators;
+- daily background revision of user subscriptions.
 
 ## Remnawave integration
 
@@ -201,6 +201,7 @@ The bot talks to the panel via the [Remnawave SDK](https://pypi.org/project/remn
 2. User creation with expiry, traffic limit, `telegram_id`, and internal squads
 3. Reading `subscription_url` from the API response
 4. Reusing an existing subscription when a local record exists and the user is still present in Remnawave
+5. Daily deletion of subscriptions for users who no longer belong to the required Telegram chat
 
 Remnawave usernames are derived from `telegram_username` and `tg_id` (max 36 characters).
 
@@ -209,7 +210,7 @@ Remnawave usernames are derived from `telegram_username` and `tg_id` (max 36 cha
 - Secrets and tokens live only in environment variables
 - Configuration validated with Pydantic (`extra = forbid`)
 - Bot access limited to members of `TG_CHAT_ID`
-- Admin actions restricted to IDs in `TG_ADMIN_IDS`
+- Subscription revision does not delete a subscription if Telegram API temporarily fails to return membership status
 
 ## Troubleshooting
 

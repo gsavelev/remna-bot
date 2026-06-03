@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
 
@@ -102,27 +102,20 @@ class Database:
             await session.commit()
             return user
 
-    async def get_user(self, tg_id: int) -> User | None:
-        async with self._session_factory() as session:
-            return await session.scalar(
-                select(User)
-                .options(selectinload(User.subscription))
-                .where(User.tg_id == tg_id)
-            )
-
-    async def get_user_by_tg_username(self, tg_username: str) -> User | None:
-        async with self._session_factory() as session:
-            return await session.scalar(
-                select(User)
-                .options(selectinload(User.subscription))
-                .where(func.lower(User.tg_username) == tg_username.lower())
-            )
-
     async def get_subscription_by_tg_id(self, tg_id: int) -> Subscription | None:
         async with self._session_factory() as session:
             return await session.scalar(
                 select(Subscription).where(Subscription.user_tg_id == tg_id)
             )
+
+    async def list_users_with_subscriptions(self) -> list[User]:
+        async with self._session_factory() as session:
+            users = await session.scalars(
+                select(User)
+                .join(Subscription)
+                .options(selectinload(User.subscription))
+            )
+            return list(users)
 
     async def upsert_subscription(
         self,
@@ -160,6 +153,16 @@ class Database:
             if subscription is None:
                 return False
             await session.delete(subscription)
+            await session.commit()
+            return True
+
+    async def set_user_chat_member(self, tg_id: int, is_chat_member: bool) -> bool:
+        async with self._session_factory() as session:
+            user = await session.scalar(select(User).where(User.tg_id == tg_id))
+            if user is None:
+                return False
+            user.is_chat_member = is_chat_member
+            user.updated_at = _utcnow()
             await session.commit()
             return True
 
