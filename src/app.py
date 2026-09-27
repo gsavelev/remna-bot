@@ -22,6 +22,7 @@ async def main() -> None:
         await bot.run()
     finally:
         await bot.close()
+        await manager.close()
         await database.close()
 
 

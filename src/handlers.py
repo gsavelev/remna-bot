@@ -18,8 +18,13 @@ from aiogram.types import (
 from aiogram.utils.token import validate_token
 
 from src.config import TelegramConfig
-from src.database import Database
-from src.rw_client import RemnawaveUserManager
+from src.database import Database, Subscription
+from src.rw_client import (
+    RemnawaveUser,
+    RemnawaveUserManager,
+    UserNotFoundError,
+    UsernameAlreadyExistsError,
+)
 
 _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
 _REMNA_USERNAME_MAX_LENGTH = 36
@@ -130,21 +135,15 @@ class RemnaTelegramBot:
         existing = await self._db.get_subscription_by_tg_id(tg_id)
         if existing is not None:
             try:
-                remote_user = await self._rw_manager.get_user(existing.uuid)
-            except Exception:
-                remote_user = None
-            if remote_user is not None:
-                subscription_url = getattr(remote_user, "subscription_url", None)
-                if isinstance(subscription_url, str) and subscription_url:
-                    await self._db.upsert_subscription(
-                        user_tg_id=tg_id,
-                        uuid=existing.uuid,
-                        username=existing.username,
-                        path=self._extract_path(subscription_url),
-                    )
-                    return subscription_url
+                remote_user = await self._resolve_subscription(existing)
+            except UserNotFoundError:
+                # A known numeric ID was deleted remotely; recreate under its saved name.
+                # Unresolved legacy records fail in _resolve_subscription instead.
+                pass
+            else:
+                return remote_user.subscription_url
 
-        username = self._build_subscription_username(
+        username = existing.username if existing is not None else self._build_subscription_username(
             tg_id=tg_id,
             tg_username=tg_username,
             tg_name=tg_name,
@@ -158,17 +157,52 @@ class RemnaTelegramBot:
                 description=f"Telegram user {tg_name}",
                 active_internal_squads=self._rw_manager.default_internal_squads(),
             )
-        except Exception:
+        except UsernameAlreadyExistsError:
             remna_user = await self._rw_manager.get_user_by_username(username)
 
-        subscription_url = str(getattr(remna_user, "subscription_url", ""))
+        self._verify_subscription_owner(remna_user, tg_id)
+        await self._save_subscription(tg_id, remna_user)
+        return remna_user.subscription_url
+
+    @staticmethod
+    def _verify_subscription_owner(
+        remote_user: RemnawaveUser, tg_id: int, existing: Subscription | None = None,
+    ) -> None:
+        if remote_user.telegram_id == tg_id:
+            return
+        # Legacy accounts can lack telegramId. Their saved subscription path must match.
+        if (
+            remote_user.telegram_id is None
+            and existing is not None
+            and existing.path
+            and existing.path != "/"
+            and urlparse(remote_user.subscription_url).path == existing.path
+        ):
+            return
+        raise ValueError(f"Remnawave user ownership mismatch for Telegram user {tg_id}")
+
+    async def _save_subscription(self, tg_id: int, remote_user: RemnawaveUser) -> None:
         await self._db.upsert_subscription(
             user_tg_id=tg_id,
-            uuid=str(getattr(remna_user, "uuid")),
-            username=str(getattr(remna_user, "username")),
-            path=self._extract_path(subscription_url),
+            remnawave_id=remote_user.id,
+            username=remote_user.username,
+            path=self._extract_path(remote_user.subscription_url),
         )
-        return subscription_url
+
+    async def _resolve_subscription(self, subscription: Subscription) -> RemnawaveUser:
+        if subscription.remnawave_id is None:
+            try:
+                remote_user = await self._rw_manager.get_user_by_username(subscription.username)
+            except UserNotFoundError as exc:
+                raise ValueError(
+                    f"Cannot migrate subscription for Telegram user {subscription.user_tg_id}: "
+                    "saved Remnawave username is missing or renamed; reconcile it manually"
+                ) from exc
+        else:
+            remote_user = await self._rw_manager.get_user(subscription.remnawave_id)
+        self._verify_subscription_owner(remote_user, subscription.user_tg_id, subscription)
+        await self._save_subscription(subscription.user_tg_id, remote_user)
+        return remote_user
 
     async def _is_chat_member(self, tg_user_id: int) -> bool:
         try:
@@ -197,21 +231,16 @@ class RemnaTelegramBot:
                 continue
 
             try:
-                result = await self._rw_manager.remove_user(user.subscription.uuid)
+                remote_user = await self._resolve_subscription(user.subscription)
+                await self._rw_manager.remove_user(remote_user.id)
+            except UserNotFoundError:
+                # Already absent on the panel: local cleanup is safe and idempotent.
+                pass
             except Exception:
                 _LOGGER.exception(
-                    "Failed to delete Remnawave user during subscription revision: tg_id=%s uuid=%s",
+                    "Failed to delete Remnawave user during subscription revision: tg_id=%s id=%s",
                     user.tg_id,
-                    user.subscription.uuid,
-                )
-                continue
-
-            is_deleted = bool(getattr(result, "is_deleted", False))
-            if not is_deleted:
-                _LOGGER.warning(
-                    "Remnawave user was not deleted during subscription revision: tg_id=%s uuid=%s",
-                    user.tg_id,
-                    user.subscription.uuid,
+                    user.subscription.remnawave_id,
                 )
                 continue
 
@@ -219,9 +248,9 @@ class RemnaTelegramBot:
             await self._db.set_user_chat_member(user.tg_id, False)
             await self._notify_subscription_deleted(user.tg_id, chat_name)
             _LOGGER.info(
-                "Deleted subscription for Telegram user outside required chat: tg_id=%s uuid=%s",
+                "Deleted subscription for Telegram user outside required chat: tg_id=%s id=%s",
                 user.tg_id,
-                user.subscription.uuid,
+                user.subscription.remnawave_id,
             )
 
     async def _check_chat_membership_for_revision(self, tg_user_id: int) -> bool | None:

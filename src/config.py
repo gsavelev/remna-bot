@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import os
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import AnyUrl, BaseModel, Field
-from remnawave.enums import TrafficLimitStrategy
+
+
+class TrafficLimitStrategy(StrEnum):
+    NO_RESET = "NO_RESET"
+    DAY = "DAY"
+    WEEK = "WEEK"
+    MONTH = "MONTH"
+    MONTH_ROLLING = "MONTH_ROLLING"
 
 
 class RemnawaveConfig(BaseModel):
