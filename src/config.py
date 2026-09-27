@@ -28,7 +28,7 @@ class RemnawaveConfig(BaseModel):
     }
 
     @classmethod
-    def from_env(cls) -> "RemnawaveConfig":
+    def from_env(cls) -> RemnawaveConfig:
         data: dict[str, Any] = {
             "base_url": os.getenv("REMNAWAVE_URL"),
             "token": os.getenv("REMNAWAVE_TOKEN"),
@@ -60,7 +60,7 @@ class TelegramConfig(BaseModel):
     }
 
     @classmethod
-    def from_env(cls) -> "TelegramConfig":
+    def from_env(cls) -> TelegramConfig:
         admin_ids_raw = os.getenv("TG_ADMIN_IDS", "")
         data: dict[str, Any] = {
             "bot_token": os.getenv("TG_BOT_TOKEN"),
@@ -71,8 +71,8 @@ class TelegramConfig(BaseModel):
                 if item.strip()
             ),
             "db_path": os.getenv("DB_PATH", "bot.db"),
-            "poll_timeout_seconds": os.getenv("TG_POLL_TIMEOUT_SECONDS", 30),
-            "subscription_expire_days": os.getenv("SUBSCRIPTION_EXPIRE_DAYS", 30),
+            "poll_timeout_seconds": os.getenv("TG_POLL_TIMEOUT_SECONDS", "30"),
+            "subscription_expire_days": os.getenv("SUBSCRIPTION_EXPIRE_DAYS", "30"),
             "traffic_limit_gb": os.getenv("TRAFFIC_LIMIT_GB") or None,
             "download_url": os.getenv("VPN_CLIENT_DOWNLOAD_URL", _DEFAULT_VPN_CLIENT_DOWNLOAD_URL),
         }

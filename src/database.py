@@ -3,9 +3,29 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, MetaData, String, inspect, select
-from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncEngine, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    inspect,
+    select,
+)
+from sqlalchemy.ext.asyncio import (
+    AsyncAttrs,
+    AsyncEngine,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    selectinload,
+)
 
 
 def _utcnow() -> datetime:
@@ -32,7 +52,7 @@ class User(Base):
         onupdate=_utcnow,
     )
 
-    subscription: Mapped["Subscription | None"] = relationship(
+    subscription: Mapped[Subscription | None] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

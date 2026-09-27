@@ -13,6 +13,8 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
+)
+from aiogram.types import (
     User as TelegramUser,
 )
 from aiogram.utils.token import validate_token
@@ -22,8 +24,8 @@ from src.database import Database, Subscription
 from src.rw_client import (
     RemnawaveUser,
     RemnawaveUserManager,
-    UserNotFoundError,
     UsernameAlreadyExistsError,
+    UserNotFoundError,
 )
 
 _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
@@ -208,6 +210,7 @@ class RemnaTelegramBot:
         try:
             member = await self._bot.get_chat_member(self._config.chat_id, tg_user_id)
         except Exception:
+            _LOGGER.exception("Failed to check chat membership: tg_id=%s", tg_user_id)
             return False
         return member.status in _MEMBER_STATUSES
 

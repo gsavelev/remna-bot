@@ -14,7 +14,10 @@ from src.config import RemnawaveConfig, TrafficLimitStrategy
 from src.database import Database
 from src.handlers import RemnaTelegramBot
 from src.rw_client import (
-    RemnawaveUser, RemnawaveUserManager, UserNotFoundError, UsernameAlreadyExistsError,
+    RemnawaveUser,
+    RemnawaveUserManager,
+    UsernameAlreadyExistsError,
+    UserNotFoundError,
 )
 
 
@@ -81,7 +84,9 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             (500, {}, httpx.HTTPStatusError),
         ]:
             with self.subTest(status=status, payload=payload):
-                manager = await self.manager(lambda r: httpx.Response(status, json=payload))
+                manager = await self.manager(
+                    lambda r, status=status, payload=payload: httpx.Response(status, json=payload)
+                )
                 with self.assertRaises(expected):
                     await manager.get_user(123)
 
@@ -149,8 +154,9 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         sub = await self.db.get_subscription_by_tg_id(42)
         self.assertEqual((sub.id, sub.legacy_uuid, sub.username, sub.path), (9, "old-user-uuid", "saved_name", "/abc"))
         self.assertIsNone(sub.remnawave_id)
-        self.assertEqual(sub.created_at, datetime(2026, 1, 1))
-        self.assertEqual(sub.updated_at, datetime(2026, 1, 2))
+        # Legacy SQLite timestamps are intentionally timezone-naive.
+        self.assertEqual(sub.created_at, datetime(2026, 1, 1))  # noqa: DTZ001
+        self.assertEqual(sub.updated_at, datetime(2026, 1, 2))  # noqa: DTZ001
         self.assertEqual(len(await self.db.list_users_with_subscriptions()), 1)
         with sqlite3.connect(self.path) as connection:
             self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
