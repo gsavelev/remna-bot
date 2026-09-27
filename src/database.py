@@ -3,9 +3,29 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, select
-from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncEngine, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    inspect,
+    select,
+)
+from sqlalchemy.ext.asyncio import (
+    AsyncAttrs,
+    AsyncEngine,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    selectinload,
+)
 
 
 def _utcnow() -> datetime:
@@ -32,7 +52,7 @@ class User(Base):
         onupdate=_utcnow,
     )
 
-    subscription: Mapped["Subscription | None"] = relationship(
+    subscription: Mapped[Subscription | None] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
@@ -43,7 +63,8 @@ class Subscription(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_tg_id: Mapped[int] = mapped_column(ForeignKey("users.tg_id", ondelete="CASCADE"), unique=True)
-    uuid: Mapped[str] = mapped_column(String, unique=True)
+    remnawave_id: Mapped[int | None] = mapped_column(Integer, unique=True, nullable=True)
+    legacy_uuid: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     username: Mapped[str] = mapped_column(String, unique=True)
     path: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -71,7 +92,33 @@ class Database:
 
     async def initialize(self) -> None:
         async with self._engine.begin() as connection:
+            # Explicit BEGIN makes SQLite DDL and data copying one atomic migration.
+            await connection.exec_driver_sql("BEGIN IMMEDIATE")
+            await connection.run_sync(self._migrate_subscriptions)
             await connection.run_sync(Base.metadata.create_all)
+
+    @staticmethod
+    def _migrate_subscriptions(connection) -> None:
+        inspector = inspect(connection)
+        if not inspector.has_table("subscriptions"):
+            return
+        columns = {column["name"] for column in inspector.get_columns("subscriptions")}
+        if "uuid" not in columns:
+            return
+        # Rebuild because the old UUID column is NOT NULL. Retain it for reference,
+        # but resolve the new numeric ID through the panel, never by conversion.
+        metadata = MetaData()
+        User.__table__.to_metadata(metadata)
+        migrated = Subscription.__table__.to_metadata(metadata, name="subscriptions_v3")
+        migrated.create(connection)
+        connection.exec_driver_sql(
+            "INSERT INTO subscriptions_v3 "
+            "(id, user_tg_id, legacy_uuid, username, path, created_at, updated_at) "
+            "SELECT id, user_tg_id, uuid, username, path, created_at, updated_at "
+            "FROM subscriptions"
+        )
+        connection.exec_driver_sql("DROP TABLE subscriptions")
+        connection.exec_driver_sql("ALTER TABLE subscriptions_v3 RENAME TO subscriptions")
 
     async def upsert_user(
         self,
@@ -121,7 +168,7 @@ class Database:
         self,
         *,
         user_tg_id: int,
-        uuid: str,
+        remnawave_id: int,
         username: str,
         path: str,
     ) -> Subscription:
@@ -132,13 +179,13 @@ class Database:
             if subscription is None:
                 subscription = Subscription(
                     user_tg_id=user_tg_id,
-                    uuid=uuid,
+                    remnawave_id=remnawave_id,
                     username=username,
                     path=path,
                 )
                 session.add(subscription)
             else:
-                subscription.uuid = uuid
+                subscription.remnawave_id = remnawave_id
                 subscription.username = username
                 subscription.path = path
                 subscription.updated_at = _utcnow()

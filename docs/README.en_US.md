@@ -125,7 +125,7 @@ If you run `watchtower`, it will pull updated images and restart the container. 
 │   ├── app.py              # Entry point, init, and polling
 │   ├── config.py           # Env loading and validation (Pydantic)
 │   ├── database.py         # ORM models and async SQLite access
-│   ├── rw_client.py        # Remnawave SDK wrapper
+│   ├── rw_client.py        # Remnawave 3.4.4 HTTP client
 │   └── handlers.py         # Bot command handlers
 ├── docs/
 │   └── README.en_US.md     # English documentation
@@ -152,7 +152,8 @@ The project uses `SQLite` with `SQLAlchemy 2` (async driver `aiosqlite`). The sc
 
 2. **`subscriptions`** — Remnawave subscriptions:
    - `user_tg_id` — foreign key to `users.tg_id`
-   - `uuid` — Remnawave user UUID
+   - `remnawave_id` — numeric Remnawave user ID (null until a legacy record is resolved)
+   - `legacy_uuid` — preserved 2.x UUID, no longer used in API calls
    - `username` — Remnawave username
    - `path` — path segment from `subscription_url`
    - `created_at`, `updated_at` — timestamps
@@ -180,10 +181,10 @@ Pydantic-based configuration:
 
 #### 4. `rw_client.py`
 
-`RemnawaveUserManager` wraps the official SDK:
+`RemnawaveUserManager` uses HTTPX with the Remnawave 3.4.4 contract:
 
 - create user;
-- fetch by UUID or username;
+- fetch by numeric ID or username;
 - delete user.
 
 #### 5. `handlers.py`
@@ -195,7 +196,7 @@ Pydantic-based configuration:
 
 ## Remnawave integration
 
-The bot talks to the panel via the [Remnawave SDK](https://pypi.org/project/remnawave/):
+The bot talks directly to the [Remnawave 3.4.4 API](https://docs.rw/api/) using HTTPX:
 
 1. API token authentication (`REMNAWAVE_TOKEN`)
 2. User creation with expiry, traffic limit, `telegram_id`, and internal squads
@@ -204,6 +205,39 @@ The bot talks to the panel via the [Remnawave SDK](https://pypi.org/project/remn
 5. Daily deletion of subscriptions for users who no longer belong to the required Telegram chat
 
 Remnawave usernames are derived from `telegram_username` and `tg_id` (max 36 characters).
+
+## Upgrading from panel 2.7.4 to 3.4.4
+
+This bot now targets panel **3.4.4**; the old 2.x API is no longer supported.
+Remnawave 3 removed user UUIDs and changed user deletion to HTTP 204 without a response body.
+Internal squad UUIDs remain valid. Optional create-user fields are omitted when unset.
+The incompatible `remnawave` 2.x Python SDK has been replaced with a small HTTPX client.
+
+Stop the bot and back up the SQLite database at `DB_PATH` before deploying. Install the
+updated `requirements.txt`, or rebuild with `docker compose up -d --build` after stopping
+and backing up. On startup, a transactional, repeatable migration rebuilds `subscriptions`,
+retaining its rows, timestamps, usernames, paths, and old UUIDs as `legacy_uuid`, and adds
+nullable `remnawave_id`. The panel database is managed by Remnawave, not this bot.
+
+Numeric IDs are resolved lazily using the stored Remnawave username on `/start` or before
+subscription deletion. Telegram username changes do not affect this lookup. The bot checks
+`telegramId` ownership (or the saved subscription path for old accounts without a Telegram ID)
+before adopting or deleting a remote account. A missing/renamed legacy username or ownership
+mismatch requires manual reconciliation; the bot preserves the local record and does not
+create or delete a remote account. API authentication, connection, and server errors also
+preserve existing records. Only Remnawave's explicit `A025` error means a user is missing.
+
+Keep `REMNAWAVE_URL` as the panel base URL, without `/api`. Check that `REMNAWAVE_TOKEN`
+works after the panel upgrade and permits creating users, reading by ID/username, and
+deleting users. Existing bot environment variable names are unchanged; `MONTH_ROLLING`
+is also accepted for `SUBSCRIPTION_RESET_STRATEGY`.
+
+Rolling back to the old bot requires restoring the pre-migration SQLite backup **and** a
+compatible 2.x panel; the new database schema is incompatible with the old bot.
+
+Run offline regression checks with `python -m unittest discover -s tests -v`.
+See the [upstream breaking changes](https://github.com/remnawave/backend/releases/tag/3.0.0)
+and the [3.4.4 user controller](https://github.com/remnawave/backend/blob/3.4.4/src/modules/users/controllers/users.controller.ts).
 
 ## Security
 
