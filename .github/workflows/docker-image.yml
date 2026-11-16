@@ -48,7 +48,7 @@ jobs:
         IMAGE_TAG=${IMAGE_ID}:${{ github.sha }}
         LATEST_TAG=${IMAGE_ID}:latest
 
-        docker build . --file Dockerfile --tag "${IMAGE_TAG}"
+        docker build . --file Dockerfile --provenance=false --sbom=false --tag "${IMAGE_TAG}"
         docker tag "${IMAGE_TAG}" "${LATEST_TAG}"
         docker push "${IMAGE_TAG}"
         docker push "${LATEST_TAG}"
