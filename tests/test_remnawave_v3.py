@@ -77,9 +77,12 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_specific_errors_only(self):
         for status, payload, expected in [
             (404, {"errorCode": "A025"}, UserNotFoundError),
+            (404, {"errorCode": "A063"}, UserNotFoundError),
             (400, {"errorCode": "A019"}, UsernameAlreadyExistsError),
             (404, {"message": "Cannot GET /api/users/123"}, httpx.HTTPStatusError),
             (401, {"errorCode": "A025"}, httpx.HTTPStatusError),
+            (401, {"errorCode": "A063"}, httpx.HTTPStatusError),
+            (404, {"errorCode": "A007"}, httpx.HTTPStatusError),
             (403, {}, httpx.HTTPStatusError),
             (500, {}, httpx.HTTPStatusError),
         ]:
@@ -238,6 +241,30 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
             self.manager.add_user.call_args.kwargs["expire_at"],
             datetime(2099, 12, 31, 23, 59, 59, tzinfo=UTC),
         )
+        self.assertEqual((await self.db.get_subscription_by_tg_id(42)).remnawave_id, 456)
+
+    async def test_api_lookup_not_found_recovers_subscription(self):
+        await self.ensure()
+        requests = []
+
+        def handler(request):
+            requests.append((request.method, request.url.path))
+            if request.method == "GET":
+                return httpx.Response(404, json={
+                    "errorCode": "A063", "message": "User with specified params not found",
+                })
+            self.assertEqual(json.loads(request.content)["username"], "saved_name")
+            return httpx.Response(201, json={"response": remote(id=456).model_dump(by_alias=True)})
+
+        manager = RemnawaveUserManager(
+            RemnawaveConfig(base_url="https://panel.example", token="test"),
+            transport=httpx.MockTransport(handler),
+        )
+        self.addAsyncCleanup(manager.close)
+        self.bot._rw_manager = manager
+
+        self.assertEqual(await self.ensure(), "https://sub.example/abc")
+        self.assertEqual(requests, [("GET", "/api/users/123"), ("POST", "/api/users")])
         self.assertEqual((await self.db.get_subscription_by_tg_id(42)).remnawave_id, 456)
 
     async def test_new_subscription_does_not_require_legacy_uuid(self):
