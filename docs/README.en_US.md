@@ -11,7 +11,7 @@ Main features:
 - Enforce membership in a required chat / group
 - Create and re-issue Remnawave subscriptions (`subscription_url`)
 - Assign a default internal squad when creating users
-- Configure subscription expiry and traffic limits
+- Subscriptions through December 31, 2099 and configurable traffic limits
 - Run a daily subscription revision: if a user no longer belongs to the required chat, their Remnawave subscription is deleted
 
 ## Installation and setup
@@ -37,7 +37,6 @@ Required settings in `.env`:
 Optional settings:
 
 - `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` — internal squad UUID for new users
-- `SUBSCRIPTION_EXPIRE_DAYS` — subscription lifetime in days (default: `30`)
 - `SUBSCRIPTION_RESET_STRATEGY` – how often the user's traffic usage statistics should be reset
 - `TRAFFIC_LIMIT_GB` — traffic cap in gigabytes (omit for unlimited)
 - `TG_POLL_TIMEOUT_SECONDS` — Telegram long polling timeout (default: `30`)

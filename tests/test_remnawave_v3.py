@@ -49,11 +49,11 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("trafficLimitBytes", body)
             self.assertNotIn("description", body)
             self.assertNotIn("uuid", body)
-            self.assertEqual(body["expireAt"], "2030-01-01T00:00:00+00:00")
+            self.assertEqual(body["expireAt"], "2099-12-31T23:59:59.000Z")
             return httpx.Response(201, json={"response": remote().model_dump(by_alias=True)})
         manager = await self.manager(handler)
         user = await manager.add_user(
-            username="saved_name", expire_at=datetime(2030, 1, 1, tzinfo=UTC), telegram_id=42,
+            username="saved_name", expire_at=datetime(2099, 12, 31, 23, 59, 59, tzinfo=UTC), telegram_id=42,
             active_internal_squads=[UUID("00000000-0000-4000-8000-000000000001")],
         )
         self.assertEqual(user.id, 123)
@@ -141,7 +141,7 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.bot = RemnaTelegramBot.__new__(RemnaTelegramBot)
         self.bot._db = self.db
         self.bot._rw_manager = self.manager
-        self.bot._config = SimpleNamespace(subscription_expire_days=30, traffic_limit_gb=None)
+        self.bot._config = SimpleNamespace(traffic_limit_gb=None)
         self.bot._check_chat_membership_for_revision = AsyncMock(return_value=False)
         self.bot._get_required_chat_name_for_revision = AsyncMock(return_value="chat")
         self.bot._notify_subscription_deleted = AsyncMock()
@@ -234,6 +234,10 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.manager.add_user.return_value = remote(id=456)
         await self.ensure()
         self.assertEqual(self.manager.add_user.call_args.kwargs["username"], "saved_name")
+        self.assertEqual(
+            self.manager.add_user.call_args.kwargs["expire_at"],
+            datetime(2099, 12, 31, 23, 59, 59, tzinfo=UTC),
+        )
         self.assertEqual((await self.db.get_subscription_by_tg_id(42)).remnawave_id, 456)
 
     async def test_new_subscription_does_not_require_legacy_uuid(self):
@@ -242,6 +246,10 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         sub = await self.db.get_subscription_by_tg_id(42)
         self.assertEqual(sub.remnawave_id, 123)
         self.assertIsNone(sub.legacy_uuid)
+        self.assertEqual(
+            self.manager.add_user.call_args.kwargs["expire_at"],
+            datetime(2099, 12, 31, 23, 59, 59, tzinfo=UTC),
+        )
 
     async def test_duplicate_username_checks_owner(self):
         await self.db.delete_subscription_by_tg_id(42)
