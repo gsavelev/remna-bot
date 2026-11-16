@@ -5,7 +5,7 @@ import unittest
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 import httpx
@@ -235,11 +235,13 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         await self.ensure()
         self.manager.get_user.side_effect = UserNotFoundError()
         self.manager.add_user.return_value = remote(id=456)
-        await self.ensure()
+        with patch("src.handlers.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime(2026, 11, 16, 12, tzinfo=UTC)
+            await self.ensure()
         self.assertEqual(self.manager.add_user.call_args.kwargs["username"], "saved_name")
         self.assertEqual(
             self.manager.add_user.call_args.kwargs["expire_at"],
-            datetime(2099, 12, 31, 23, 59, 59, tzinfo=UTC),
+            datetime(2099, 11, 16, 23, 59, 59, tzinfo=UTC),
         )
         self.assertEqual((await self.db.get_subscription_by_tg_id(42)).remnawave_id, 456)
 
@@ -269,13 +271,25 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_new_subscription_does_not_require_legacy_uuid(self):
         await self.db.delete_subscription_by_tg_id(42)
-        await self.ensure()
+        with patch("src.handlers.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime(2026, 11, 16, 12, tzinfo=UTC)
+            await self.ensure()
         sub = await self.db.get_subscription_by_tg_id(42)
         self.assertEqual(sub.remnawave_id, 123)
         self.assertIsNone(sub.legacy_uuid)
         self.assertEqual(
             self.manager.add_user.call_args.kwargs["expire_at"],
-            datetime(2099, 12, 31, 23, 59, 59, tzinfo=UTC),
+            datetime(2099, 11, 16, 23, 59, 59, tzinfo=UTC),
+        )
+
+    async def test_new_subscription_on_leap_day(self):
+        await self.db.delete_subscription_by_tg_id(42)
+        with patch("src.handlers.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime(2028, 2, 29, 12, tzinfo=UTC)
+            await self.ensure()
+        self.assertEqual(
+            self.manager.add_user.call_args.kwargs["expire_at"],
+            datetime(2099, 2, 28, 23, 59, 59, tzinfo=UTC),
         )
 
     async def test_duplicate_username_checks_owner(self):
