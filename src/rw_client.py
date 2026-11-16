@@ -50,7 +50,8 @@ class RemnawaveUserManager:
                 error = {}
             code = error.get("errorCode") if isinstance(error, dict) else None
             # A reverse-proxy 404 is not evidence that a user is missing.
-            if response.status_code == 404 and code == "A025":
+            # Lookups by ID/username use A063; deletion uses A025.
+            if response.status_code == 404 and code in ("A025", "A063"):
                 raise UserNotFoundError("Remnawave user not found")
             if response.status_code == 400 and code == "A019":
                 raise UsernameAlreadyExistsError("Remnawave username already exists")

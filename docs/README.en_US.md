@@ -224,7 +224,7 @@ subscription deletion. Telegram username changes do not affect this lookup. The 
 before adopting or deleting a remote account. A missing/renamed legacy username or ownership
 mismatch requires manual reconciliation; the bot preserves the local record and does not
 create or delete a remote account. API authentication, connection, and server errors also
-preserve existing records. Only Remnawave's explicit `A025` error means a user is missing.
+preserve existing records. Only Remnawave's explicit `A025` or `A063` errors mean a user is missing.
 
 Keep `REMNAWAVE_URL` as the panel base URL, without `/api`. Check that `REMNAWAVE_TOKEN`
 works after the panel upgrade and permits creating users, reading by ID/username, and
