@@ -155,8 +155,8 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((sub.id, sub.legacy_uuid, sub.username, sub.path), (9, "old-user-uuid", "saved_name", "/abc"))
         self.assertIsNone(sub.remnawave_id)
         # Legacy SQLite timestamps are intentionally timezone-naive.
-        self.assertEqual(sub.created_at, datetime(2026, 1, 1))  # noqa: DTZ001
-        self.assertEqual(sub.updated_at, datetime(2026, 1, 2))  # noqa: DTZ001
+        self.assertEqual(sub.created_at, datetime(2026, 1, 1))
+        self.assertEqual(sub.updated_at, datetime(2026, 1, 2))
         self.assertEqual(len(await self.db.list_users_with_subscriptions()), 1)
         with sqlite3.connect(self.path) as connection:
             self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
