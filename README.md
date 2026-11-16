@@ -37,7 +37,7 @@
 Дополнительные параметры:
 
 - `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` — UUID internal squad для новых пользователей
-- Новые пользователи создаются через `POST /api/users` с `expireAt: "2099-12-31T23:59:59.000Z"`
+- `SUBSCRIPTION_RESET_STRATEGY` – через какой период времени следует сбрасывать статистику использования трафика пользователем
 - `TRAFFIC_LIMIT_GB` — лимит трафика в гигабайтах (если не задан — без лимита)
 - `TG_POLL_TIMEOUT_SECONDS` — timeout long polling для Telegram API (по умолчанию: `30`)
 - `VPN_CLIENT_DOWNLOAD_URL` — ссылка на страницу загрузки VPN-клиента (по умолчанию: [Happ](https://www.happ.su/main/ru))

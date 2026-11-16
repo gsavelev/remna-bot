@@ -37,7 +37,7 @@ Required settings in `.env`:
 Optional settings:
 
 - `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` — internal squad UUID for new users
-- New users are created via `POST /api/users` with `expireAt: "2099-12-31T23:59:59.000Z"`
+- `SUBSCRIPTION_RESET_STRATEGY` – how often the user's traffic usage statistics should be reset
 - `TRAFFIC_LIMIT_GB` — traffic cap in gigabytes (omit for unlimited)
 - `TG_POLL_TIMEOUT_SECONDS` — Telegram long polling timeout (default: `30`)
 - `VPN_CLIENT_DOWNLOAD_URL` — VPN client download page (default: [Happ](https://www.happ.su/main/ru))
