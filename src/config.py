@@ -50,7 +50,6 @@ class TelegramConfig(BaseModel):
     admin_ids: tuple[int, ...] = ()
     db_path: str = "bot.db"
     poll_timeout_seconds: int = Field(default=30, ge=1, le=120)
-    subscription_expire_days: int = Field(default=30, ge=1)
     traffic_limit_gb: int | None = Field(default=None, ge=1)
     download_url: AnyUrl = _DEFAULT_VPN_CLIENT_DOWNLOAD_URL
 
@@ -72,7 +71,6 @@ class TelegramConfig(BaseModel):
             ),
             "db_path": os.getenv("DB_PATH", "bot.db"),
             "poll_timeout_seconds": os.getenv("TG_POLL_TIMEOUT_SECONDS", "30"),
-            "subscription_expire_days": os.getenv("SUBSCRIPTION_EXPIRE_DAYS", "30"),
             "traffic_limit_gb": os.getenv("TRAFFIC_LIMIT_GB") or None,
             "download_url": os.getenv("VPN_CLIENT_DOWNLOAD_URL", _DEFAULT_VPN_CLIENT_DOWNLOAD_URL),
         }

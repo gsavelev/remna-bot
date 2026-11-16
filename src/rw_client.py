@@ -71,7 +71,7 @@ class RemnawaveUserManager:
     ) -> RemnawaveUser:
         body = {
             "username": username,
-            "expireAt": expire_at.isoformat(),
+            "expireAt": expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
             "trafficLimitBytes": traffic_limit_bytes,
             "trafficLimitStrategy": self._config.traffic_limit_strategy.value,
             "description": description,
