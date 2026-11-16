@@ -11,7 +11,7 @@ Main features:
 - Enforce membership in a required chat / group
 - Create and re-issue Remnawave subscriptions (`subscription_url`)
 - Assign a default internal squad when creating users
-- Subscriptions through December 31, 2099 and configurable traffic limits
+- New subscriptions expire on the current month and day in 2099 at 23:59:59 UTC (February 29 becomes February 28), with configurable traffic limits
 - Run a daily subscription revision: if a user no longer belongs to the required chat, their Remnawave subscription is deleted
 
 ## Installation and setup

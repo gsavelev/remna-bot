@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from calendar import monthrange
 from contextlib import suppress
 from datetime import UTC, datetime
 from urllib.parse import urlparse
@@ -31,8 +32,14 @@ from src.rw_client import (
 _MEMBER_STATUSES = {"creator", "administrator", "member", "restricted"}
 _REMNA_USERNAME_MAX_LENGTH = 36
 _SUBSCRIPTION_REVISION_INTERVAL_SECONDS = 24 * 60 * 60
-_SUBSCRIPTION_EXPIRE_AT = datetime(2099, 12, 31, 23, 59, 59, tzinfo=UTC)
 _LOGGER = logging.getLogger(__name__)
+
+
+def _subscription_expire_at() -> datetime:
+    today = datetime.now(UTC)
+    # February 29 becomes February 28 because 2099 is not a leap year.
+    day = min(today.day, monthrange(2099, today.month)[1])
+    return datetime(2099, today.month, day, 23, 59, 59, tzinfo=UTC)
 
 
 class RemnaTelegramBot:
@@ -154,7 +161,7 @@ class RemnaTelegramBot:
         try:
             remna_user = await self._rw_manager.add_user(
                 username=username,
-                expire_at=_SUBSCRIPTION_EXPIRE_AT,
+                expire_at=_subscription_expire_at(),
                 traffic_limit_bytes=self._traffic_limit_bytes(),
                 telegram_id=tg_id,
                 description=f"Telegram user {tg_name}",
