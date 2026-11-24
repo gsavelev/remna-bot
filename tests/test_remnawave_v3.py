@@ -5,7 +5,7 @@ import unittest
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID
 
 import httpx
@@ -68,17 +68,17 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
                 with patch.dict("os.environ", env, clear=True):
                     config = RemnawaveConfig.from_env()
 
-                def handler(request):
-                    body = json.loads(request.content)
-                    if value:
-                        self.assertEqual(body["externalSquadUuid"], squad_uuid)
-                    else:
-                        self.assertNotIn("externalSquadUuid", body)
-                    return httpx.Response(201, json={"response": remote().model_dump(by_alias=True)})
-
+                handler = Mock(return_value=httpx.Response(201, json={"response": remote().model_dump(by_alias=True)}))
                 manager = RemnawaveUserManager(config, transport=httpx.MockTransport(handler))
                 self.addAsyncCleanup(manager.close)
                 await manager.add_user(username="saved_name", expire_at=datetime(2099, 12, 31, tzinfo=UTC))
+
+                handler.assert_called_once()
+                body = json.loads(handler.call_args.args[0].content)
+                if value:
+                    self.assertEqual(body["externalSquadUuid"], squad_uuid)
+                else:
+                    self.assertNotIn("externalSquadUuid", body)
 
     async def test_numeric_lookup_username_lookup_and_empty_delete(self):
         requests = []
