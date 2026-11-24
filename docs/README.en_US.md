@@ -37,6 +37,7 @@ Required settings in `.env`:
 Optional settings:
 
 - `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` — internal squad UUID for new users
+- `REMNAWAVE_DEFAULT_EXTERNAL_SQUAD_UUID` sets the external squad UUID for new users. Leave it unset or empty to create users without an external squad.
 - `SUBSCRIPTION_RESET_STRATEGY` – how often the user's traffic usage statistics should be reset
 - `TRAFFIC_LIMIT_GB` — traffic cap in gigabytes (omit for unlimited)
 - `TG_POLL_TIMEOUT_SECONDS` — Telegram long polling timeout (default: `30`)
