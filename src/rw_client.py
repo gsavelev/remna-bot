@@ -70,6 +70,7 @@ class RemnawaveUserManager:
         telegram_id: int | None = None,
         active_internal_squads: list[UUID] | None = None,
     ) -> RemnawaveUser:
+        external_squad_uuid = self._config.default_external_squad_uuid
         body = {
             "username": username,
             "expireAt": expire_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
@@ -83,6 +84,7 @@ class RemnawaveUserManager:
                 [str(uuid) for uuid in active_internal_squads]
                 if active_internal_squads is not None else None
             ),
+            "externalSquadUuid": str(external_squad_uuid) if external_squad_uuid is not None else None,
         }
         # Optional fields such as trafficLimitBytes do not accept JSON null in v3.
         response = await self._request(

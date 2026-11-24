@@ -58,6 +58,28 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(user.id, 123)
 
+    async def test_create_uses_external_squad_from_env_when_set(self):
+        squad_uuid = "00000000-0000-4000-8000-000000000002"
+        for value in (squad_uuid, None, ""):
+            with self.subTest(value=value):
+                env = {"REMNAWAVE_URL": "https://panel.example", "REMNAWAVE_TOKEN": "test"}
+                if value is not None:
+                    env["REMNAWAVE_DEFAULT_EXTERNAL_SQUAD_UUID"] = value
+                with patch.dict("os.environ", env, clear=True):
+                    config = RemnawaveConfig.from_env()
+
+                def handler(request):
+                    body = json.loads(request.content)
+                    if value:
+                        self.assertEqual(body["externalSquadUuid"], squad_uuid)
+                    else:
+                        self.assertNotIn("externalSquadUuid", body)
+                    return httpx.Response(201, json={"response": remote().model_dump(by_alias=True)})
+
+                manager = RemnawaveUserManager(config, transport=httpx.MockTransport(handler))
+                self.addAsyncCleanup(manager.close)
+                await manager.add_user(username="saved_name", expire_at=datetime(2099, 12, 31, tzinfo=UTC))
+
     async def test_numeric_lookup_username_lookup_and_empty_delete(self):
         requests = []
         def handler(request):

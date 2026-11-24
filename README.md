@@ -37,6 +37,7 @@
 Дополнительные параметры:
 
 - `REMNAWAVE_DEFAULT_INTERNAL_SQUAD_UUID` — UUID internal squad для новых пользователей
+- `REMNAWAVE_DEFAULT_EXTERNAL_SQUAD_UUID` — UUID external squad для новых пользователей. Если переменная не задана или пуста, пользователи создаются без external squad.
 - `SUBSCRIPTION_RESET_STRATEGY` – через какой период времени следует сбрасывать статистику использования трафика пользователем
 - `TRAFFIC_LIMIT_GB` — лимит трафика в гигабайтах (если не задан — без лимита)
 - `TG_POLL_TIMEOUT_SECONDS` — timeout long polling для Telegram API (по умолчанию: `30`)
